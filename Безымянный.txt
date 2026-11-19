@@ -1,0 +1,2470 @@
+```html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PAPER.IO — Захват территории</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-void: #060913;
+      --bg-card: rgba(13, 19, 38, 0.88);
+      --bg-card-strong: rgba(18, 26, 51, 0.96);
+      --border-glass: rgba(148, 163, 184, 0.2);
+      --border-neon: rgba(0, 245, 255, 0.35);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --neon-cyan: #00f5ff;
+      --neon-magenta: #ff2a85;
+      --electric-purple: #9d4edd;
+      --neon-lime: #39ff14;
+      --neon-gold: #ffd166;
+      --danger: #ff3b6b;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      touch-action: none;
+    }
+
+    /* Full-bleed live arena canvas */
+    #gameCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      background: radial-gradient(circle at 50% 45%, #0d1630 0%, #070b17 65%, #050811 100%);
+    }
+
+    /* HUD Layers during active gameplay */
+    #hudRoot {
+      position: fixed;
+      inset: 0;
+      z-index: 15;
+      pointer-events: none;
+      display: none;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    }
+
+    #hudRoot.active {
+      display: block;
+    }
+
+    .hud-top-bar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .hud-left-cluster {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: calc(100% - 116px);
+    }
+
+    .hud-stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 7px 12px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-pill-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .hud-pill-val {
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--neon-cyan);
+    }
+
+    .hud-crown-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 209, 102, 0.14);
+      border: 1px solid rgba(255, 209, 102, 0.48);
+      color: var(--neon-gold);
+      border-radius: 14px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 0 18px rgba(255, 209, 102, 0.18);
+    }
+
+    .hud-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      color: var(--text-main);
+      border-radius: 13px;
+      padding: 8px 13px;
+      min-height: 36px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.48);
+      transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+    }
+
+    .hud-btn:hover {
+      border-color: var(--neon-cyan);
+      background: var(--bg-card-strong);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn:active {
+      transform: scale(0.96);
+    }
+
+    .hud-btn.muted {
+      color: var(--text-muted);
+      border-color: rgba(148, 163, 184, 0.16);
+    }
+
+    #respawnCooldownPill {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      background: rgba(157, 78, 221, 0.16);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(157, 78, 221, 0.45);
+      color: #e9d5ff;
+      border-radius: 13px;
+      padding: 6px 11px;
+      font-size: 11px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
+    }
+
+    #respawnCooldownPill.visible {
+      display: inline-flex;
+    }
+
+    /* Top-Right Radar Minimap & Leaderboard */
+    .hud-right-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .minimap-frame {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      background: rgba(8, 13, 28, 0.9);
+      border: 2px solid rgba(0, 245, 255, 0.42);
+      box-shadow: 0 0 24px rgba(0, 245, 255, 0.16), inset 0 0 18px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+    }
+
+    @media (min-width: 640px) {
+      .minimap-frame {
+        width: 124px;
+        height: 124px;
+      }
+    }
+
+    #minimapCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+    }
+
+    .leaderboard-box {
+      width: 152px;
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 8px 10px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.52);
+    }
+
+    @media (max-width: 480px) {
+      .leaderboard-box {
+        width: 124px;
+        padding: 7px 8px;
+      }
+    }
+
+    .leaderboard-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboard-row.is-player {
+      color: var(--neon-cyan);
+      font-weight: 900;
+    }
+
+    .leaderboard-name {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 92px;
+    }
+
+    .leaderboard-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Subtle lower-screen drag vector guide */
+    #dragHintBar {
+      position: fixed;
+      left: 50%;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 12;
+      pointer-events: none;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(13, 19, 38, 0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #cbd5e1;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #dragHintBar.active {
+      display: inline-flex;
+    }
+
+    #dragHintBar.dragging {
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(0, 245, 255, 0.24);
+    }
+
+    /* Event toast notification */
+    #toastBanner {
+      position: fixed;
+      top: 118px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      z-index: 25;
+      pointer-events: none;
+      opacity: 0;
+      background: rgba(14, 21, 44, 0.94);
+      border: 1px solid rgba(0, 245, 255, 0.45);
+      color: #ffffff;
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65), 0 0 22px rgba(0, 245, 255, 0.2);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      max-width: 90vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #toastBanner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Centered Overlay Screens (#startScreen, #pauseModal, #gameOverModal) */
+    .overlay-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+      background: radial-gradient(circle at 50% 35%, rgba(15, 24, 52, 0.62) 0%, rgba(5, 8, 17, 0.86) 100%);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .overlay-screen.hidden {
+      display: none;
+    }
+
+    #pauseModal, #gameOverModal {
+      z-index: 40;
+    }
+
+    .menu-card {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
+      background: linear-gradient(165deg, rgba(16, 24, 48, 0.96) 0%, rgba(9, 14, 30, 0.98) 100%);
+      border: 1px solid var(--border-neon);
+      border-radius: 24px;
+      padding: 22px 20px;
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.78),
+        0 0 40px rgba(0, 245, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      margin: auto;
+    }
+
+    @media (min-width: 480px) {
+      .menu-card {
+        padding: 26px 24px;
+      }
+    }
+
+    .neon-top-accent {
+      position: absolute;
+      top: 0;
+      left: 24px;
+      right: 24px;
+      height: 3px;
+      border-radius: 0 0 999px 999px;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--electric-purple), var(--neon-magenta), var(--neon-lime));
+      box-shadow: 0 0 16px rgba(0, 245, 255, 0.6);
+    }
+
+    .brand-header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .brand-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--neon-cyan);
+      background: rgba(0, 245, 255, 0.1);
+      border: 1px solid rgba(0, 245, 255, 0.3);
+      border-radius: 999px;
+      padding: 4px 12px;
+      margin-bottom: 8px;
+    }
+
+    .brand-title {
+      font-size: clamp(28px, 7vw, 38px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #ffffff 10%, var(--neon-cyan) 55%, var(--neon-magenta) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .brand-subtitle {
+      margin-top: 6px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+
+    .form-block {
+      margin-bottom: 14px;
+    }
+
+    .form-label-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+
+    .form-value-badge {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--neon-cyan);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .text-input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(6, 10, 22, 0.85);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .text-input:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.18);
+    }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .theme-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      border-radius: 13px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(9, 14, 31, 0.85);
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+    }
+
+    .theme-chip:hover {
+      border-color: rgba(255, 255, 255, 0.42);
+      transform: translateY(-1px);
+    }
+
+    .theme-chip.active {
+      border-color: var(--chip-color, var(--neon-cyan));
+      background: rgba(20, 31, 64, 0.95);
+      box-shadow: 0 0 16px rgba(0, 245, 255, 0.16);
+      color: #ffffff;
+    }
+
+    .theme-swatch-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .panel-box {
+      background: rgba(8, 13, 28, 0.76);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 15px;
+      padding: 11px 13px;
+      margin-bottom: 12px;
+    }
+
+    .range-slider {
+      width: 100%;
+      accent-color: var(--neon-cyan);
+      cursor: pointer;
+      height: 22px;
+      display: block;
+    }
+
+    .diff-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .diff-btn {
+      padding: 9px 6px;
+      border-radius: 11px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(13, 20, 42, 0.9);
+      color: #cbd5e1;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .diff-btn:hover {
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+    }
+
+    .diff-btn.active {
+      background: linear-gradient(135deg, rgba(0, 245, 255, 0.24), rgba(157, 78, 221, 0.24));
+      border-color: var(--neon-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(0, 245, 255, 0.2);
+    }
+
+    .cta-primary-btn {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      min-height: 48px;
+      padding: 13px 18px;
+      margin-top: 6px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, #38bdf8 48%, var(--electric-purple) 100%);
+      color: #050814;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: auto;
+      box-shadow: 0 10px 28px rgba(0, 245, 255, 0.35), 0 0 22px rgba(157, 78, 221, 0.28);
+      transition: transform 0.14s ease, filter 0.14s ease;
+    }
+
+    .cta-primary-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    .cta-primary-btn:active {
+      transform: scale(0.98);
+    }
+
+    .cta-secondary-btn {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      min-height: 44px;
+      padding: 11px 16px;
+      margin-top: 9px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(16, 24, 48, 0.92);
+      color: #f1f5f9;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+    }
+
+    .cta-secondary-btn:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(24, 36, 70, 0.98);
+      transform: translateY(-1px);
+    }
+
+    .cta-secondary-btn.exit-danger:hover {
+      border-color: var(--neon-magenta);
+      background: rgba(65, 14, 38, 0.85);
+      color: #ffd6e7;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .stat-tile {
+      background: rgba(8, 13, 28, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 14px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .stat-tile-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .stat-tile-val {
+      margin-top: 3px;
+      font-size: 16px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+    }
+
+    .controls-note {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Live Arena Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Active Gameplay HUD -->
+  <div id="hudRoot">
+    <div class="hud-top-bar">
+      <div class="hud-left-cluster">
+        <div class="hud-stats-row">
+          <div class="hud-pill">
+            <span class="hud-pill-label">Зона</span>
+            <span id="hudZonePct" class="hud-pill-val">0.0%</span>
+          </div>
+          <div class="hud-pill">
+            <span class="hud-pill-label">Фраги</span>
+            <span id="hudKills" class="hud-pill-val" style="color: var(--neon-gold);">0</span>
+          </div>
+          <div id="hudCrownBadge" class="hud-crown-badge" style="display: none;">
+            <span>👑</span>
+            <span>#1 ЛИДЕР</span>
+          </div>
+        </div>
+
+        <div class="hud-actions-row">
+          <button id="muteBtn" type="button" class="hud-btn" aria-label="Переключить звук">🔊 Звук</button>
+          <button id="pauseBtn" type="button" class="hud-btn" aria-label="Пауза">⏸ Пауза</button>
+          <div id="respawnCooldownPill" aria-live="polite">
+            <span>⏳</span>
+            <span id="respawnCooldownLabel">Боты: 0.0с</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-right-cluster">
+        <div class="minimap-frame" title="Радар арены">
+          <canvas id="minimapCanvas"></canvas>
+        </div>
+
+        <div class="leaderboard-box">
+          <div class="leaderboard-title">Топ арены</div>
+          <div id="leaderboardRows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lower-Screen Drag Steering Bar -->
+  <div id="dragHintBar">
+    <span>🧭</span>
+    <span id="dragHintText">Тяните в нижней части экрана или жмите WASD / Стрелки</span>
+  </div>
+
+  <!-- Floating Toast Alert -->
+  <div id="toastBanner"></div>
+
+  <!-- Start Screen Overlay -->
+  <section id="startScreen" class="overlay-screen" aria-label="Главное меню PAPER.IO">
+    <div class="menu-card">
+      <div class="neon-top-accent"></div>
+
+      <div class="brand-header">
+        <div class="brand-tag">NEON TERRITORY ARENA</div>
+        <h1 class="brand-title">PAPER.IO</h1>
+        <p class="brand-subtitle">
+          Замыкайте контуры, захватывайте зоны и перерезайте следы соперников.
+        </p>
+      </div>
+
+      <div class="form-block">
+        <div class="form-label-line">
+          <label for="nicknameInput" class="form-label">Позывной игрока</label>
+        </div>
+        <input
+          id="nicknameInput"
+          type="text"
+          class="text-input"
+          maxlength="16"
+          placeholder="Введите имя..."
+          value="Игрок"
+        />
+      </div>
+
+      <div class="form-block">
+        <div class="form-label-line">
+          <span class="form-label">Неоновая тема</span>
+          <span id="selectedThemeLabel" class="form-value-badge">Неоновый циан</span>
+        </div>
+        <div id="themeGrid" class="theme-grid"></div>
+      </div>
+
+      <div class="panel-box">
+        <div class="form-label-line" style="margin-bottom: 2px;">
+          <label for="botCountInput" class="form-label">Количество ботов</label>
+          <span id="botCountDisplay" class="form-value-badge">6</span>
+        </div>
+        <input id="botCountInput" type="range" class="range-slider" min="1" max="14" step="1" value="6" />
+      </div>
+
+      <div class="panel-box">
+        <div class="form-label">Сложность ИИ</div>
+        <div id="difficultySelector" class="diff-row" role="group" aria-label="Сложность ИИ">
+          <button type="button" class="diff-btn" data-diff="easy">Лёгкая</button>
+          <button type="button" class="diff-btn active" data-diff="medium">Средняя</button>
+          <button type="button" class="diff-btn" data-diff="hard">Профи</button>
+        </div>
+      </div>
+
+      <button id="startBtn" type="button" class="cta-primary-btn">ИГРАТЬ</button>
+
+      <div class="controls-note">
+        Нижняя половина экрана — управление вектором свайпа • Клавиши <b>WASD</b> / <b>Стрелки</b> • <b>Esc / P</b> — пауза
+      </div>
+    </div>
+  </section>
+
+  <!-- Pause Modal Overlay -->
+  <section id="pauseModal" class="overlay-screen hidden" role="dialog" aria-modal="true" aria-labelledby="pauseHeading">
+    <div class="menu-card" style="max-width: 380px; text-align: center;">
+      <div class="neon-top-accent"></div>
+      <div class="brand-tag" style="color: var(--neon-gold); border-color: rgba(255, 209, 102, 0.35); background: rgba(255, 209, 102, 0.1);">
+        ПАУЗА
+      </div>
+      <h2 id="pauseHeading" class="brand-title" style="font-size: 28px;">Игра приостановлена</h2>
+      <p class="brand-subtitle">Выберите дальнейшее действие.</p>
+
+      <div style="margin-top: 16px;">
+        <button id="resumeBtn" type="button" class="cta-primary-btn">Продолжить</button>
+        <button id="pauseRestartBtn" type="button" class="cta-secondary-btn">Начать заново</button>
+        <button id="pauseMenuBtn" type="button" class="cta-secondary-btn exit-danger">Выйти в меню</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Game Over Modal Overlay -->
+  <section id="gameOverModal" class="overlay-screen hidden" role="dialog" aria-modal="true" aria-labelledby="gameOverHeading">
+    <div class="menu-card" style="max-width: 400px; text-align: center;">
+      <div class="neon-top-accent"></div>
+      <div id="deathBadge" class="brand-tag" style="color: var(--neon-magenta); border-color: rgba(255, 42, 133, 0.4); background: rgba(255, 42, 133, 0.12);">
+        РАУНД ЗАВЕРШЁН
+      </div>
+      <h2 id="gameOverHeading" class="brand-title" style="font-size: 28px;">Вы выбыли</h2>
+      <p id="deathSummaryText" class="brand-subtitle">Соперник пересёк ваш активный след.</p>
+
+      <div class="stats-grid">
+        <div class="stat-tile">
+          <div class="stat-tile-label">Зона</div>
+          <div id="finalZonePct" class="stat-tile-val" style="color: var(--neon-cyan);">0.0%</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile-label">Фраги</div>
+          <div id="finalKills" class="stat-tile-val" style="color: var(--neon-gold);">0</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile-label">Время</div>
+          <div id="finalTime" class="stat-tile-val" style="color: var(--neon-lime);">0с</div>
+        </div>
+      </div>
+
+      <button id="restartBtn" type="button" class="cta-primary-btn">Играть снова</button>
+      <button id="gameOverMenuBtn" type="button" class="cta-secondary-btn exit-danger">В меню</button>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // --- ARENA & GAMEPLAY CONSTANTS ---
+      const GRID_COLS = 46;
+      const GRID_ROWS = 46;
+      const CELL_SIZE = 32;
+      const ARENA_W = GRID_COLS * CELL_SIZE;
+      const ARENA_H = GRID_ROWS * CELL_SIZE;
+      const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+
+      const PLAYER_SPEED = 212;
+      const SPAWN_PROTECTION_SEC = 1.65;
+      const DRAG_ZONE_START_RATIO = 0.5; // Lower half of viewport
+      const DRAG_MIN_VECTOR_PX = 8;
+
+      const BOT_RESPAWN_COOLDOWN_SEC = {
+        easy: 7.0,
+        medium: 5.5,
+        hard: 4.0
+      };
+
+      const DIFFICULTY_TUNING = {
+        easy: { speedFactor: 0.84, turnRate: 5.4, maxExpandSteps: 5, aggression: 0.25 },
+        medium: { speedFactor: 0.95, turnRate: 7.6, maxExpandSteps: 9, aggression: 0.55 },
+        hard: { speedFactor: 1.04, turnRate: 10.2, maxExpandSteps: 14, aggression: 0.85 }
+      };
+
+      const NEON_THEMES = [
+        {
+          id: 'cyan',
+          name: 'Неоновый циан',
+          primary: '#00f5ff',
+          secondary: '#0284c7',
+          fill: 'rgba(0, 245, 255, 0.30)',
+          bevel: 'rgba(0, 180, 216, 0.72)',
+          trail: 'rgba(0, 245, 255, 0.58)'
+        },
+        {
+          id: 'magenta',
+          name: 'Кибер-маджента',
+          primary: '#ff2a85',
+          secondary: '#be185d',
+          fill: 'rgba(255, 42, 133, 0.30)',
+          bevel: 'rgba(190, 24, 93, 0.72)',
+          trail: 'rgba(255, 42, 133, 0.58)'
+        },
+        {
+          id: 'lime',
+          name: 'Кислотный лайм',
+          primary: '#39ff14',
+          secondary: '#15803d',
+          fill: 'rgba(57, 255, 20, 0.27)',
+          bevel: 'rgba(22, 163, 74, 0.72)',
+          trail: 'rgba(57, 255, 20, 0.56)'
+        },
+        {
+          id: 'gold',
+          name: 'Солнечное золото',
+          primary: '#ffd166',
+          secondary: '#d97706',
+          fill: 'rgba(255, 209, 102, 0.30)',
+          bevel: 'rgba(217, 119, 6, 0.72)',
+          trail: 'rgba(255, 209, 102, 0.58)'
+        }
+      ];
+
+      const BOT_POOL_COLORS = [
+        { primary: '#9d4edd', secondary: '#6d28d9', fill: 'rgba(157, 78, 221, 0.30)', bevel: 'rgba(109, 40, 217, 0.72)', trail: 'rgba(157, 78, 221, 0.58)' },
+        { primary: '#ff6b35', secondary: '#c2410c', fill: 'rgba(255, 107, 53, 0.30)', bevel: 'rgba(194, 65, 12, 0.72)', trail: 'rgba(255, 107, 53, 0.58)' },
+        { primary: '#00bbf9', secondary: '#0369a1', fill: 'rgba(0, 187, 249, 0.30)', bevel: 'rgba(3, 105, 161, 0.72)', trail: 'rgba(0, 187, 249, 0.58)' },
+        { primary: '#f15bb5', secondary: '#a21caf', fill: 'rgba(241, 91, 181, 0.30)', bevel: 'rgba(162, 28, 175, 0.72)', trail: 'rgba(241, 91, 181, 0.58)' },
+        { primary: '#00f5d4', secondary: '#0f766e', fill: 'rgba(0, 245, 212, 0.28)', bevel: 'rgba(15, 118, 110, 0.72)', trail: 'rgba(0, 245, 212, 0.56)' }
+      ];
+
+      const BOT_NAMES = [
+        'Vortex', 'Kira', 'Pulse', 'Nova', 'Zero', 'Byte', 'Echo',
+        'Rift', 'Flux', 'Apex', 'Cipher', 'Helios', 'Lyra', 'Spark'
+      ];
+
+      // --- DOM REFERENCES WITH NULL GUARDS ---
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas ? canvas.getContext('2d') : null;
+      const minimapCanvas = document.getElementById('minimapCanvas');
+      const minimapCtx = minimapCanvas ? minimapCanvas.getContext('2d') : null;
+
+      const hudRoot = document.getElementById('hudRoot');
+      const hudZonePct = document.getElementById('hudZonePct');
+      const hudKills = document.getElementById('hudKills');
+      const hudCrownBadge = document.getElementById('hudCrownBadge');
+      const muteBtn = document.getElementById('muteBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const respawnCooldownPill = document.getElementById('respawnCooldownPill');
+      const respawnCooldownLabel = document.getElementById('respawnCooldownLabel');
+      const leaderboardRows = document.getElementById('leaderboardRows');
+
+      const dragHintBar = document.getElementById('dragHintBar');
+      const dragHintText = document.getElementById('dragHintText');
+      const toastBanner = document.getElementById('toastBanner');
+
+      const startScreen = document.getElementById('startScreen');
+      const pauseModal = document.getElementById('pauseModal');
+      const gameOverModal = document.getElementById('gameOverModal');
+
+      const nicknameInput = document.getElementById('nicknameInput');
+      const themeGrid = document.getElementById('themeGrid');
+      const selectedThemeLabel = document.getElementById('selectedThemeLabel');
+      const botCountInput = document.getElementById('botCountInput');
+      const botCountDisplay = document.getElementById('botCountDisplay');
+      const difficultySelector = document.getElementById('difficultySelector');
+
+      const startBtn = document.getElementById('startBtn');
+      const resumeBtn = document.getElementById('resumeBtn');
+      const pauseRestartBtn = document.getElementById('pauseRestartBtn');
+      const pauseMenuBtn = document.getElementById('pauseMenuBtn');
+      const restartBtn = document.getElementById('restartBtn');
+      const gameOverMenuBtn = document.getElementById('gameOverMenuBtn');
+
+      const deathBadge = document.getElementById('deathBadge');
+      const deathSummaryText = document.getElementById('deathSummaryText');
+      const finalZonePct = document.getElementById('finalZonePct');
+      const finalKills = document.getElementById('finalKills');
+      const finalTime = document.getElementById('finalTime');
+
+      // --- WEB AUDIO SYNTHESIZER ---
+      const sfx = {
+        ctx: null,
+        muted: false,
+        ensure() {
+          if (this.muted) return null;
+          try {
+            if (!this.ctx) {
+              const AudioCtx = window.AudioContext || window.webkitAudioContext;
+              if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+              this.ctx.resume().catch(() => {});
+            }
+            return this.ctx;
+          } catch (_) {
+            return null;
+          }
+        },
+        tone(freq, endFreq, duration, type, gainVal) {
+          const ac = this.ensure();
+          if (!ac) return;
+          try {
+            const now = ac.currentTime;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            if (endFreq && endFreq !== freq) {
+              osc.frequency.exponentialRampToValueAtTime(Math.max(40, endFreq), now + duration);
+            }
+            gain.gain.setValueAtTime(gainVal || 0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + duration + 0.01);
+          } catch (_) {}
+        },
+        capture() {
+          this.tone(420, 780, 0.16, 'triangle', 0.11);
+          setTimeout(() => this.tone(620, 960, 0.14, 'sine', 0.08), 65);
+        },
+        kill() {
+          this.tone(540, 220, 0.2, 'sawtooth', 0.1);
+          setTimeout(() => this.tone(720, 1080, 0.18, 'triangle', 0.1), 80);
+        },
+        gem() {
+          this.tone(880, 1180, 0.09, 'sine', 0.07);
+        },
+        death() {
+          this.tone(280, 75, 0.36, 'sawtooth', 0.12);
+        }
+      };
+
+      // --- CENTRAL GAME STATE ---
+      const state = {
+        mode: 'menu', // 'menu' | 'playing' | 'paused' | 'gameover'
+        themeIdx: 0,
+        botCount: 6,
+        difficulty: 'medium',
+        nextId: 1,
+        botNameIdx: 0,
+        territory: new Uint8Array(TOTAL_CELLS),
+        trail: new Uint8Array(TOTAL_CELLS),
+        entities: [],
+        respawnQueue: [], // Array of { remaining: number }
+        gems: [],
+        gemTimer: 0,
+        particles: [],
+        ripples: [],
+        floatingTexts: [],
+        motes: [],
+        matchElapsed: 0,
+        wasLeader: false,
+        camera: {
+          x: ARENA_W * 0.5,
+          y: ARENA_H * 0.5,
+          zoom: 1,
+          shake: 0
+        },
+        input: {
+          keys: new Set(),
+          dragging: false,
+          pointerId: null,
+          startX: 0,
+          startY: 0,
+          currX: 0,
+          currY: 0,
+          vectorAngle: null
+        },
+        time: 0,
+        lastFrameMs: 0,
+        hudTick: 0,
+        toastTimer: null
+      };
+
+      // --- UTILITY HELPERS ---
+      function cellIdx(c, r) {
+        return r * GRID_COLS + c;
+      }
+
+      function worldToCell(x, y) {
+        const c = Math.max(0, Math.min(GRID_COLS - 1, Math.floor(x / CELL_SIZE)));
+        const r = Math.max(0, Math.min(GRID_ROWS - 1, Math.floor(y / CELL_SIZE)));
+        return { c, r };
+      }
+
+      function cellCenter(c, r) {
+        return {
+          x: (c + 0.5) * CELL_SIZE,
+          y: (r + 0.5) * CELL_SIZE
+        };
+      }
+
+      function normalizeAngle(a) {
+        let res = a;
+        while (res > Math.PI) res -= Math.PI * 2;
+        while (res < -Math.PI) res += Math.PI * 2;
+        return res;
+      }
+
+      function turnTowardsAngle(current, target, maxStep) {
+        const diff = normalizeAngle(target - current);
+        if (Math.abs(diff) <= maxStep) return target;
+        return normalizeAngle(current + Math.sign(diff) * maxStep);
+      }
+
+      function showToast(msg) {
+        if (!toastBanner) return;
+        toastBanner.textContent = msg;
+        toastBanner.classList.add('show');
+        clearTimeout(state.toastTimer);
+        state.toastTimer = setTimeout(() => {
+          toastBanner.classList.remove('show');
+        }, 2100);
+      }
+
+      function initMotes() {
+        state.motes = [];
+        for (let i = 0; i < 65; i++) {
+          state.motes.push({
+            x: Math.random() * ARENA_W,
+            y: Math.random() * ARENA_H,
+            r: 1 + Math.random() * 2.2,
+            vx: (Math.random() - 0.5) * 14,
+            vy: (Math.random() - 0.5) * 14,
+            alpha: 0.14 + Math.random() * 0.28
+          });
+        }
+      }
+
+      function addRipple(x, y, color, maxRadius) {
+        state.ripples.push({
+          x,
+          y,
+          color,
+          radius: 10,
+          maxRadius: maxRadius || 130,
+          alpha: 0.75
+        });
+      }
+
+      function addBurst(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+          const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+          const spd = 55 + Math.random() * 165;
+          state.particles.push({
+            x,
+            y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            life: 0.35 + Math.random() * 0.3,
+            maxLife: 0.65,
+            size: 2.5 + Math.random() * 3.5,
+            color
+          });
+        }
+      }
+
+      function addFloatingText(x, y, text, color) {
+        state.floatingTexts.push({
+          x,
+          y,
+          text,
+          color: color || '#ffffff',
+          life: 1.0
+        });
+      }
+
+      // --- UI THEME & SELECTOR SETUP ---
+      function buildThemeChips() {
+        if (!themeGrid) return;
+        themeGrid.innerHTML = '';
+        NEON_THEMES.forEach((t, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'theme-chip' + (idx === state.themeIdx ? ' active' : '');
+          btn.style.setProperty('--chip-color', t.primary);
+
+          const dot = document.createElement('span');
+          dot.className = 'theme-swatch-dot';
+          dot.style.backgroundColor = t.primary;
+          dot.style.color = t.primary;
+
+          const label = document.createElement('span');
+          label.textContent = t.name;
+
+          btn.appendChild(dot);
+          btn.appendChild(label);
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.themeIdx = idx;
+            if (selectedThemeLabel) {
+              selectedThemeLabel.textContent = t.name;
+              selectedThemeLabel.style.color = t.primary;
+            }
+            themeGrid.querySelectorAll('.theme-chip').forEach((el, i) => {
+              el.classList.toggle('active', i === idx);
+            });
+          });
+          themeGrid.appendChild(btn);
+        });
+      }
+
+      function setHudActive(active) {
+        if (hudRoot) hudRoot.classList.toggle('active', active);
+        if (dragHintBar) dragHintBar.classList.toggle('active', active);
+      }
+
+      function clearDragInput() {
+        state.input.dragging = false;
+        state.input.pointerId = null;
+        state.input.vectorAngle = null;
+        if (dragHintBar) dragHintBar.classList.remove('dragging');
+        if (dragHintText) {
+          dragHintText.textContent = 'Тяните в нижней части экрана или жмите WASD / Стрелки';
+        }
+      }
+
+      // --- TERRITORY, SPAWN & FLOOD-FILL CAPTURE ---
+      function findSafeSpawn(avoidPoints) {
+        const margin = 5;
+        let best = { c: Math.floor(GRID_COLS / 2), r: Math.floor(GRID_ROWS / 2) };
+        let bestDist = -1;
+
+        for (let attempt = 0; attempt < 40; attempt++) {
+          const c = margin + Math.floor(Math.random() * (GRID_COLS - margin * 2));
+          const r = margin + Math.floor(Math.random() * (GRID_ROWS - margin * 2));
+          const pt = cellCenter(c, r);
+
+          let minD = Infinity;
+          for (let i = 0; i < avoidPoints.length; i++) {
+            const d = Math.hypot(pt.x - avoidPoints[i].x, pt.y - avoidPoints[i].y);
+            if (d < minD) minD = d;
+          }
+          if (!avoidPoints.length) minD = 9999;
+
+          let blocked = false;
+          for (let dr = -2; dr <= 2 && !blocked; dr++) {
+            for (let dc = -2; dc <= 2; dc++) {
+              const idx = cellIdx(c + dc, r + dr);
+              if (state.territory[idx] !== 0 || state.trail[idx] !== 0) {
+                blocked = true;
+                break;
+              }
+            }
+          }
+
+          if (!blocked && minD > bestDist) {
+            bestDist = minD;
+            best = { c, r };
+            if (minD > CELL_SIZE * 10) break;
+          }
+        }
+        return best;
+      }
+
+      function claim5x5Territory(entityId, centerC, centerR) {
+        for (let dr = -2; dr <= 2; dr++) {
+          for (let dc = -2; dc <= 2; dc++) {
+            const c = centerC + dc;
+            const r = centerR + dr;
+            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS) {
+              const idx = cellIdx(c, r);
+              state.territory[idx] = entityId;
+              state.trail[idx] = 0;
+            }
+          }
+        }
+      }
+
+      function clearEntityCells(entityId) {
+        for (let i = 0; i < TOTAL_CELLS; i++) {
+          if (state.territory[i] === entityId) state.territory[i] = 0;
+          if (state.trail[i] === entityId) state.trail[i] = 0;
+        }
+      }
+
+      function floodFillCapture(entity) {
+        const id = entity.id;
+        // Promote active trail cells to territory first
+        for (let i = 0; i < TOTAL_CELLS; i++) {
+          if (state.trail[i] === id) {
+            state.territory[i] = id;
+            state.trail[i] = 0;
+          }
+        }
+        entity.trailCells = [];
+        entity.outsideTerritory = false;
+
+        // BFS from padded outside border to find all cells reachable without crossing `id`'s territory
+        const padCols = GRID_COLS + 2;
+        const padRows = GRID_ROWS + 2;
+        const visited = new Uint8Array(padCols * padRows);
+        const queue = new Int32Array(padCols * padRows);
+        let head = 0;
+        let tail = 0;
+
+        visited[0] = 1;
+        queue[tail++] = 0;
+
+        const dirs = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1]
+        ];
+
+        while (head < tail) {
+          const cur = queue[head++];
+          const pc = cur % padCols;
+          const pr = (cur - pc) / padCols;
+
+          for (let d = 0; d < 4; d++) {
+            const nc = pc + dirs[d][0];
+            const nr = pr + dirs[d][1];
+            if (nc < 0 || nc >= padCols || nr < 0 || nr >= padRows) continue;
+            const nIdx = nr * padCols + nc;
+            if (visited[nIdx]) continue;
+
+            // Map padded coordinate back to grid cell (-1 means outside border)
+            const gc = nc - 1;
+            const gr = nr - 1;
+            if (gc >= 0 && gc < GRID_COLS && gr >= 0 && gr < GRID_ROWS) {
+              if (state.territory[cellIdx(gc, gr)] === id) {
+                continue;
+              }
+            }
+            visited[nIdx] = 1;
+            queue[tail++] = nIdx;
+          }
+        }
+
+        let newlyCaptured = 0;
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            const pIdx = (r + 1) * padCols + (c + 1);
+            if (!visited[pIdx]) {
+              const gIdx = cellIdx(c, r);
+              if (state.territory[gIdx] !== id) {
+                state.territory[gIdx] = id;
+                newlyCaptured++;
+              }
+            }
+          }
+        }
+
+        if (newlyCaptured > 0) {
+          addRipple(entity.x, entity.y, entity.color.primary, Math.min(220, 80 + newlyCaptured * 3.5));
+          addBurst(entity.x, entity.y, entity.color.primary, Math.min(24, 8 + Math.floor(newlyCaptured / 3)));
+          if (entity.isPlayer) {
+            sfx.capture();
+            if (newlyCaptured >= 8) {
+              addFloatingText(entity.x, entity.y - 18, `+${newlyCaptured} клеток`, entity.color.primary);
+            }
+          }
+        }
+      }
+
+      // --- ENTITY CREATION & BOT RESPAWN COOLDOWN ---
+      function createEntity(opts) {
+        const spawnCell = findSafeSpawn(opts.avoidPoints || []);
+        const center = cellCenter(spawnCell.c, spawnCell.r);
+        claim5x5Territory(opts.id, spawnCell.c, spawnCell.r);
+
+        return {
+          id: opts.id,
+          name: opts.name,
+          color: opts.color,
+          isPlayer: !!opts.isPlayer,
+          difficulty: opts.difficulty || state.difficulty,
+          x: center.x,
+          y: center.y,
+          angle: Math.random() * Math.PI * 2,
+          speed: opts.isPlayer ? PLAYER_SPEED : PLAYER_SPEED * (DIFFICULTY_TUNING[opts.difficulty || state.difficulty] || DIFFICULTY_TUNING.medium).speedFactor,
+          alive: true,
+          spawnGrace: SPAWN_PROTECTION_SEC,
+          outsideTerritory: false,
+          trailCells: [],
+          ribbonPoints: [{ x: center.x, y: center.y }],
+          kills: 0,
+          territoryCells: 25,
+          aiTimer: 0,
+          aiTargetAngle: Math.random() * Math.PI * 2,
+          aiExpandBudget: 0
+        };
+      }
+
+      function populateGems() {
+        state.gems = [];
+        for (let i = 0; i < 10; i++) {
+          spawnGem();
+        }
+      }
+
+      function spawnGem() {
+        if (state.gems.length >= 12) return;
+        const margin = CELL_SIZE * 2.5;
+        state.gems.push({
+          x: margin + Math.random() * (ARENA_W - margin * 2),
+          y: margin + Math.random() * (ARENA_H - margin * 2),
+          r: 7.5,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      function queueBotRespawn() {
+        const baseCd = BOT_RESPAWN_COOLDOWN_SEC[state.difficulty] || BOT_RESPAWN_COOLDOWN_SEC.medium;
+        const jitter = (Math.random() - 0.5) * 0.7;
+        state.respawnQueue.push({
+          remaining: Math.max(2.0, baseCd + jitter)
+        });
+        refreshCooldownBadge();
+      }
+
+      function spawnQueuedBot() {
+        const avoid = state.entities
+          .filter((e) => e.alive)
+          .map((e) => ({ x: e.x, y: e.y }));
+        const palette = BOT_POOL_COLORS[(state.nextId + state.themeIdx) % BOT_POOL_COLORS.length];
+        const name = BOT_NAMES[state.botNameIdx % BOT_NAMES.length];
+        state.botNameIdx++;
+
+        const bot = createEntity({
+          id: state.nextId++,
+          name,
+          color: palette,
+          isPlayer: false,
+          difficulty: state.difficulty,
+          avoidPoints: avoid
+        });
+        state.entities.push(bot);
+        addRipple(bot.x, bot.y, bot.color.primary, 95);
+        addBurst(bot.x, bot.y, bot.color.primary, 12);
+      }
+
+      function updateBotRespawns(dt) {
+        const liveBots = state.entities.filter((e) => !e.isPlayer && e.alive).length;
+        const needed = state.botCount - (liveBots + state.respawnQueue.length);
+        for (let i = 0; i < needed; i++) {
+          queueBotRespawn();
+        }
+
+        for (let i = state.respawnQueue.length - 1; i >= 0; i--) {
+          state.respawnQueue[i].remaining -= dt;
+          if (state.respawnQueue[i].remaining <= 0) {
+            state.respawnQueue.splice(i, 1);
+            const currentBots = state.entities.filter((e) => !e.isPlayer && e.alive).length;
+            if (currentBots < state.botCount) {
+              spawnQueuedBot();
+            }
+          }
+        }
+        refreshCooldownBadge();
+      }
+
+      function refreshCooldownBadge() {
+        if (!respawnCooldownPill || !respawnCooldownLabel) return;
+        if (state.respawnQueue.length === 0 || (state.mode !== 'playing' && state.mode !== 'paused')) {
+          respawnCooldownPill.classList.remove('visible');
+          return;
+        }
+        let minLeft = Infinity;
+        for (let i = 0; i < state.respawnQueue.length; i++) {
+          if (state.respawnQueue[i].remaining < minLeft) {
+            minLeft = state.respawnQueue[i].remaining;
+          }
+        }
+        respawnCooldownLabel.textContent = `КД ботов (${state.respawnQueue.length}): ${Math.max(0.1, minLeft).toFixed(1)}с`;
+        respawnCooldownPill.classList.add('visible');
+      }
+
+      // --- ELIMINATION & GAME OVER ---
+      function eliminateEntity(victim, killer, reasonText) {
+        if (!victim || !victim.alive) return;
+        victim.alive = false;
+
+        addRipple(victim.x, victim.y, victim.color.primary, 150);
+        addBurst(victim.x, victim.y, victim.color.primary, 24);
+        clearEntityCells(victim.id);
+
+        if (killer && killer.alive && killer.id !== victim.id) {
+          killer.kills++;
+          if (killer.isPlayer) {
+            sfx.kill();
+            state.camera.shake = Math.max(state.camera.shake, 9);
+            addFloatingText(victim.x, victim.y - 16, `Устранён ${victim.name}!`, '#ffd166');
+            showToast(`⚡ Вы устранили ${victim.name}`);
+          }
+        }
+
+        if (victim.isPlayer) {
+          sfx.death();
+          state.camera.shake = 14;
+          finishPlayerRound(reasonText || 'Вы пересекли чужой след или границу');
+        } else {
+          queueBotRespawn();
+        }
+      }
+
+      function finishPlayerRound(reason) {
+        if (state.mode === 'gameover') return;
+        state.mode = 'gameover';
+        state.input.keys.clear();
+        clearDragInput();
+        setHudActive(false);
+
+        if (pauseModal) pauseModal.classList.add('hidden');
+        if (startScreen) startScreen.classList.add('hidden');
+
+        const player = state.entities.find((e) => e.isPlayer);
+        const pct = player ? ((player.territoryCells / TOTAL_CELLS) * 100).toFixed(1) : '0.0';
+        const kills = player ? player.kills : 0;
+        const sec = Math.max(1, Math.round(state.matchElapsed));
+
+        if (deathBadge) deathBadge.textContent = 'ПОРАЖЕНИЕ';
+        if (deathSummaryText) deathSummaryText.textContent = reason;
+        if (finalZonePct) finalZonePct.textContent = `${pct}%`;
+        if (finalKills) finalKills.textContent = String(kills);
+        if (finalTime) finalTime.textContent = `${sec}с`;
+
+        if (gameOverModal) gameOverModal.classList.remove('hidden');
+      }
+
+      // --- PLAYER & BOT STEERING ---
+      function computeKeyAngle() {
+        let dx = 0;
+        let dy = 0;
+        const k = state.input.keys;
+        if (k.has('ArrowLeft') || k.has('KeyA')) dx -= 1;
+        if (k.has('ArrowRight') || k.has('KeyD')) dx += 1;
+        if (k.has('ArrowUp') || k.has('KeyW')) dy -= 1;
+        if (k.has('ArrowDown') || k.has('KeyS')) dy += 1;
+        if (dx === 0 && dy === 0) return null;
+        return Math.atan2(dy, dx);
+      }
+
+      function updateBotSteering(bot, dt) {
+        const cfg = DIFFICULTY_TUNING[bot.difficulty] || DIFFICULTY_TUNING.medium;
+        bot.aiTimer -= dt;
+
+        // Avoid arena border
+        const borderMargin = CELL_SIZE * 3.2;
+        if (
+          bot.x < borderMargin ||
+          bot.x > ARENA_W - borderMargin ||
+          bot.y < borderMargin ||
+          bot.y > ARENA_H - borderMargin
+        ) {
+          const toCenter = Math.atan2(ARENA_H * 0.5 - bot.y, ARENA_W * 0.5 - bot.x);
+          bot.angle = turnTowardsAngle(bot.angle, toCenter, cfg.turnRate * dt);
+          return;
+        }
+
+        if (bot.aiTimer <= 0) {
+          bot.aiTimer = 0.24 + Math.random() * 0.26;
+          if (!bot.outsideTerritory) {
+            bot.aiExpandBudget = 3 + Math.floor(Math.random() * cfg.maxExpandSteps);
+            bot.aiTargetAngle = bot.angle + (Math.random() - 0.5) * 1.4;
+          } else if (bot.aiExpandBudget > 0) {
+            bot.aiExpandBudget--;
+            if (Math.random() < 0.45) {
+              bot.aiTargetAngle = normalizeAngle(bot.aiTargetAngle + (Math.random() < 0.5 ? Math.PI * 0.45 : -Math.PI * 0.45));
+            }
+          } else {
+            // Head back toward nearest owned cell
+            const cur = worldToCell(bot.x, bot.y);
+            let bestPt = null;
+            let bestDist = Infinity;
+            for (let r = 0; r < GRID_ROWS; r += 2) {
+              for (let c = 0; c < GRID_COLS; c += 2) {
+                if (state.territory[cellIdx(c, r)] === bot.id) {
+                  const pt = cellCenter(c, r);
+                  const d = Math.hypot(pt.x - bot.x, pt.y - bot.y);
+                  if (d < bestDist) {
+                    bestDist = d;
+                    bestPt = pt;
+                  }
+                }
+              }
+            }
+            if (bestPt) {
+              bot.aiTargetAngle = Math.atan2(bestPt.y - bot.y, bestPt.x - bot.x);
+            } else {
+              bot.aiTargetAngle = Math.atan2(ARENA_H * 0.5 - bot.y, ARENA_W * 0.5 - bot.x);
+            }
+          }
+        }
+
+        bot.angle = turnTowardsAngle(bot.angle, bot.aiTargetAngle, cfg.turnRate * dt);
+      }
+
+      function stepEntity(ent, dt) {
+        if (!ent.alive) return;
+        if (ent.spawnGrace > 0) {
+          ent.spawnGrace = Math.max(0, ent.spawnGrace - dt);
+        }
+
+        if (ent.isPlayer) {
+          const keyAng = computeKeyAngle();
+          if (keyAng !== null) {
+            ent.angle = turnTowardsAngle(ent.angle, keyAng, 10.5 * dt);
+          } else if (state.input.dragging && state.input.vectorAngle !== null) {
+            ent.angle = turnTowardsAngle(ent.angle, state.input.vectorAngle, 11.5 * dt);
+          }
+        } else {
+          updateBotSteering(ent, dt);
+        }
+
+        ent.x += Math.cos(ent.angle) * ent.speed * dt;
+        ent.y += Math.sin(ent.angle) * ent.speed * dt;
+
+        // Arena boundary check
+        const pad = CELL_SIZE * 0.45;
+        if (ent.x < pad || ent.x > ARENA_W - pad || ent.y < pad || ent.y > ARENA_H - pad) {
+          eliminateEntity(ent, null, 'Вы коснулись границы арены');
+          return;
+        }
+
+        // Smooth ribbon trail sampling
+        const lastPt = ent.ribbonPoints[ent.ribbonPoints.length - 1];
+        if (!lastPt || Math.hypot(ent.x - lastPt.x, ent.y - lastPt.y) >= 5) {
+          ent.ribbonPoints.push({ x: ent.x, y: ent.y });
+          if (ent.ribbonPoints.length > 260) ent.ribbonPoints.shift();
+        }
+
+        // Gem collection
+        for (let i = state.gems.length - 1; i >= 0; i--) {
+          const g = state.gems[i];
+          if (Math.hypot(ent.x - g.x, ent.y - g.y) <= g.r + 14) {
+            state.gems.splice(i, 1);
+            if (ent.isPlayer) {
+              sfx.gem();
+              addFloatingText(g.x, g.y - 10, '💎 +Бонус', '#00f5ff');
+            }
+            addBurst(g.x, g.y, '#00f5ff', 8);
+          }
+        }
+
+        // Cell territory & trail logic
+        const { c, r } = worldToCell(ent.x, ent.y);
+        const idx = cellIdx(c, r);
+        const owner = state.territory[idx];
+
+        if (owner === ent.id) {
+          if (ent.outsideTerritory && ent.trailCells.length > 0) {
+            floodFillCapture(ent);
+          }
+          ent.outsideTerritory = false;
+          ent.ribbonPoints = [{ x: ent.x, y: ent.y }];
+        } else {
+          ent.outsideTerritory = true;
+          const trailOwner = state.trail[idx];
+          if (trailOwner !== ent.id) {
+            state.trail[idx] = ent.id;
+            ent.trailCells.push(idx);
+          }
+        }
+
+        // Check head-on & trail collisions against other entities
+        for (let j = 0; j < state.entities.length; j++) {
+          const other = state.entities[j];
+          if (!other.alive || other.id === ent.id) continue;
+
+          // Crossing enemy's active trail eliminates the enemy
+          if (other.trailCells.length > 0 && other.spawnGrace <= 0) {
+            for (let t = 0; t < other.trailCells.length; t++) {
+              const tIdx = other.trailCells[t];
+              const tc = tIdx % GRID_COLS;
+              const tr = (tIdx - tc) / GRID_COLS;
+              const center = cellCenter(tc, tr);
+              if (Math.hypot(ent.x - center.x, ent.y - center.y) < CELL_SIZE * 0.56) {
+                eliminateEntity(other, ent, `Вас устранил ${ent.name}`);
+                break;
+              }
+            }
+          }
+
+          // Head-to-head collision between two entities
+          if (ent.alive && other.alive) {
+            const dist = Math.hypot(ent.x - other.x, ent.y - other.y);
+            if (dist < CELL_SIZE * 0.62) {
+              if (ent.spawnGrace <= 0 && other.spawnGrace <= 0) {
+                if (ent.trailCells.length > other.trailCells.length) {
+                  eliminateEntity(ent, other, `Столкновение с ${other.name}`);
+                  return;
+                } else if (other.trailCells.length > ent.trailCells.length) {
+                  eliminateEntity(other, ent, `Столкновение с ${other.name}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // --- HUD & LEADERBOARD REFRESH ---
+      function recalculateCounts() {
+        const counts = new Map();
+        for (let i = 0; i < TOTAL_CELLS; i++) {
+          const id = state.territory[i];
+          if (id !== 0) {
+            counts.set(id, (counts.get(id) || 0) + 1);
+          }
+        }
+        for (let i = 0; i < state.entities.length; i++) {
+          const e = state.entities[i];
+          e.territoryCells = e.alive ? (counts.get(e.id) || 0) : 0;
+        }
+      }
+
+      function refreshHud() {
+        recalculateCounts();
+
+        const aliveList = state.entities
+          .filter((e) => e.alive)
+          .sort((a, b) => b.territoryCells - a.territoryCells);
+
+        const leaderId = aliveList.length > 0 ? aliveList[0].id : null;
+        const player = state.entities.find((e) => e.isPlayer);
+
+        if (player && player.alive) {
+          const pct = ((player.territoryCells / TOTAL_CELLS) * 100).toFixed(1);
+          if (hudZonePct) hudZonePct.textContent = `${pct}%`;
+          if (hudKills) hudKills.textContent = String(player.kills);
+
+          const isLeader = leaderId === player.id && aliveList.length > 1;
+          if (hudCrownBadge) {
+            hudCrownBadge.style.display = isLeader ? 'inline-flex' : 'none';
+          }
+          if (isLeader && !state.wasLeader) {
+            showToast('👑 Вы заняли #1 место на арене!');
+          }
+          state.wasLeader = isLeader;
+        }
+
+        if (leaderboardRows) {
+          leaderboardRows.innerHTML = '';
+          const top = aliveList.slice(0, 5);
+          top.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'leaderboard-row' + (item.isPlayer ? ' is-player' : '');
+
+            const left = document.createElement('div');
+            left.className = 'leaderboard-name';
+
+            const dot = document.createElement('span');
+            dot.className = 'leaderboard-dot';
+            dot.style.backgroundColor = item.color.primary;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = `${idx + 1}. ${item.name}`;
+
+            const valSpan = document.createElement('span');
+            valSpan.textContent = `${((item.territoryCells / TOTAL_CELLS) * 100).toFixed(1)}%`;
+
+            left.appendChild(dot);
+            left.appendChild(nameSpan);
+            row.appendChild(left);
+            row.appendChild(valSpan);
+            leaderboardRows.appendChild(row);
+          });
+        }
+      }
+
+      // --- FLOW CONTROLS (START, PAUSE, RESUME, RESTART, MENU) ---
+      function beginNewGame() {
+        try {
+          sfx.ensure();
+
+          state.territory.fill(0);
+          state.trail.fill(0);
+          state.entities = [];
+          state.respawnQueue = [];
+          state.particles = [];
+          state.ripples = [];
+          state.floatingTexts = [];
+          state.nextId = 1;
+          state.botNameIdx = 0;
+          state.matchElapsed = 0;
+          state.wasLeader = false;
+          state.input.keys.clear();
+          clearDragInput();
+
+          const rawName = nicknameInput ? nicknameInput.value.trim() : '';
+          const playerName = rawName || 'Игрок';
+          const theme = NEON_THEMES[state.themeIdx] || NEON_THEMES[0];
+
+          const sliderNum = botCountInput ? parseInt(botCountInput.value, 10) : state.botCount;
+          const botsToSpawn = Number.isFinite(sliderNum) ? Math.min(14, Math.max(1, sliderNum)) : state.botCount;
+          state.botCount = botsToSpawn;
+          if (botCountDisplay) botCountDisplay.textContent = String(botsToSpawn);
+
+          const avoid = [];
+          const player = createEntity({
+            id: state.nextId++,
+            name: playerName,
+            color: theme,
+            isPlayer: true,
+            difficulty: state.difficulty,
+            avoidPoints: avoid
+          });
+          state.entities.push(player);
+          avoid.push({ x: player.x, y: player.y });
+
+          for (let i = 0; i < botsToSpawn; i++) {
+            const palette = BOT_POOL_COLORS[(i + state.themeIdx) % BOT_POOL_COLORS.length];
+            const bName = BOT_NAMES[state.botNameIdx % BOT_NAMES.length];
+            state.botNameIdx++;
+            const bot = createEntity({
+              id: state.nextId++,
+              name: bName,
+              color: palette,
+              isPlayer: false,
+              difficulty: state.difficulty,
+              avoidPoints: avoid
+            });
+            state.entities.push(bot);
+            avoid.push({ x: bot.x, y: bot.y });
+          }
+
+          populateGems();
+          state.camera.x = player.x;
+          state.camera.y = player.y;
+          state.camera.zoom = 1;
+          state.camera.shake = 0;
+          state.hudTick = 0;
+          state.lastFrameMs = performance.now();
+          state.mode = 'playing';
+
+          if (startScreen) startScreen.classList.add('hidden');
+          if (pauseModal) pauseModal.classList.add('hidden');
+          if (gameOverModal) gameOverModal.classList.add('hidden');
+
+          setHudActive(true);
+          refreshHud();
+          refreshCooldownBadge();
+        } catch (err) {
+          console.error('Error starting game:', err);
+          if (startScreen) startScreen.classList.add('hidden');
+          setHudActive(true);
+          state.mode = 'playing';
+        }
+      }
+
+      function pauseMatch() {
+        if (state.mode !== 'playing') return;
+        state.mode = 'paused';
+        state.input.keys.clear();
+        clearDragInput();
+        if (pauseModal) pauseModal.classList.remove('hidden');
+        refreshCooldownBadge();
+      }
+
+      function resumeMatch() {
+        if (state.mode !== 'paused') return;
+        state.lastFrameMs = performance.now();
+        state.mode = 'playing';
+        if (pauseModal) pauseModal.classList.add('hidden');
+        refreshCooldownBadge();
+      }
+
+      function togglePauseMatch() {
+        if (state.mode === 'playing') pauseMatch();
+        else if (state.mode === 'paused') resumeMatch();
+      }
+
+      function returnToMainMenu() {
+        state.mode = 'menu';
+        state.input.keys.clear();
+        clearDragInput();
+        setHudActive(false);
+        if (pauseModal) pauseModal.classList.add('hidden');
+        if (gameOverModal) gameOverModal.classList.add('hidden');
+        if (startScreen) startScreen.classList.remove('hidden');
+        seedAmbientArena();
+      }
+
+      function seedAmbientArena() {
+        state.territory.fill(0);
+        state.trail.fill(0);
+        state.entities = [];
+        state.respawnQueue = [];
+        const demoThemes = [NEON_THEMES[0], NEON_THEMES[1], BOT_POOL_COLORS[0], NEON_THEMES[2]];
+        const spots = [
+          { c: 14, r: 16 },
+          { c: 31, r: 15 },
+          { c: 16, r: 30 },
+          { c: 30, r: 30 }
+        ];
+        spots.forEach((sp, i) => {
+          const id = i + 1;
+          claim5x5Territory(id, sp.c, sp.r);
+          const center = cellCenter(sp.c, sp.r);
+          state.entities.push({
+            id,
+            name: BOT_NAMES[i],
+            color: demoThemes[i],
+            isPlayer: false,
+            difficulty: 'medium',
+            x: center.x,
+            y: center.y,
+            angle: i * 1.4,
+            speed: 140,
+            alive: true,
+            spawnGrace: 0,
+            outsideTerritory: false,
+            trailCells: [],
+            ribbonPoints: [{ x: center.x, y: center.y }],
+            kills: 0,
+            territoryCells: 25
+          });
+        });
+        populateGems();
+      }
+
+      // --- RELIABLE BUTTON & INPUT BINDINGS ---
+      function attachAction(el, fn) {
+        if (!el) return;
+        const handler = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fn();
+        };
+        el.addEventListener('click', handler);
+        el.addEventListener('touchend', handler, { passive: false });
+      }
+
+      attachAction(startBtn, beginNewGame);
+      attachAction(restartBtn, beginNewGame);
+      attachAction(pauseRestartBtn, beginNewGame);
+      attachAction(resumeBtn, resumeMatch);
+      attachAction(pauseMenuBtn, returnToMainMenu);
+      attachAction(gameOverMenuBtn, returnToMainMenu);
+
+      if (pauseBtn) {
+        attachAction(pauseBtn, pauseMatch);
+      }
+
+      if (muteBtn) {
+        attachAction(muteBtn, () => {
+          sfx.muted = !sfx.muted;
+          muteBtn.textContent = sfx.muted ? '🔇 Тихо' : '🔊 Звук';
+          muteBtn.classList.toggle('muted', sfx.muted);
+          if (!sfx.muted) {
+            sfx.ensure();
+            sfx.gem();
+          }
+        });
+      }
+
+      if (botCountInput) {
+        botCountInput.addEventListener('input', () => {
+          const v = parseInt(botCountInput.value, 10);
+          const clamped = Number.isFinite(v) ? Math.min(14, Math.max(1, v)) : 6;
+          state.botCount = clamped;
+          if (botCountDisplay) botCountDisplay.textContent = String(clamped);
+          if (state.mode === 'playing' || state.mode === 'paused') {
+            updateBotRespawns(0);
+          }
+        });
+      }
+
+      if (difficultySelector) {
+        difficultySelector.addEventListener('click', (e) => {
+          const btn = e.target.closest('.diff-btn');
+          if (!btn) return;
+          const d = btn.dataset.diff;
+          if (!DIFFICULTY_TUNING[d]) return;
+          state.difficulty = d;
+          difficultySelector.querySelectorAll('.diff-btn').forEach((b) => {
+            b.classList.toggle('active', b === btn);
+          });
+        });
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Escape' || e.code === 'KeyP') {
+          if (state.mode === 'playing' || state.mode === 'paused') {
+            e.preventDefault();
+            togglePauseMatch();
+          }
+          return;
+        }
+        if (state.mode !== 'playing') return;
+        if (document.activeElement === nicknameInput) return;
+        const code = e.code;
+        if (
+          code === 'ArrowUp' ||
+          code === 'ArrowDown' ||
+          code === 'ArrowLeft' ||
+          code === 'ArrowRight' ||
+          code === 'KeyW' ||
+          code === 'KeyA' ||
+          code === 'KeyS' ||
+          code === 'KeyD'
+        ) {
+          e.preventDefault();
+          state.input.keys.add(code);
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        state.input.keys.delete(e.code);
+      });
+
+      window.addEventListener('blur', () => {
+        state.input.keys.clear();
+        clearDragInput();
+      });
+
+      // Lower-half drag-vector steering
+      function updateDragVector(clientX, clientY) {
+        state.input.currX = clientX;
+        state.input.currY = clientY;
+        const dx = clientX - state.input.startX;
+        const dy = clientY - state.input.startY;
+        if (Math.hypot(dx, dy) >= DRAG_MIN_VECTOR_PX) {
+          state.input.vectorAngle = Math.atan2(dy, dx);
+          if (dragHintText) {
+            dragHintText.textContent = 'Направление задаётся вектором свайпа';
+          }
+        }
+      }
+
+      if (canvas) {
+        canvas.addEventListener('pointerdown', (e) => {
+          if (state.mode !== 'playing') return;
+          const lowerBoundaryY = window.innerHeight * DRAG_ZONE_START_RATIO;
+          if (e.clientY >= lowerBoundaryY && !state.input.dragging) {
+            state.input.dragging = true;
+            state.input.pointerId = e.pointerId;
+            state.input.startX = e.clientX;
+            state.input.startY = e.clientY;
+            state.input.currX = e.clientX;
+            state.input.currY = e.clientY;
+            state.input.vectorAngle = null;
+            if (dragHintBar) dragHintBar.classList.add('dragging');
+            if (dragHintText) dragHintText.textContent = 'Тяните влево / вправо / вверх / вниз';
+            try {
+              canvas.setPointerCapture(e.pointerId);
+            } catch (_) {}
+          }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (!state.input.dragging || e.pointerId !== state.input.pointerId) return;
+          updateDragVector(e.clientX, e.clientY);
+        });
+
+        const stopDrag = (e) => {
+          if (state.input.dragging && e.pointerId === state.input.pointerId) {
+            clearDragInput();
+          }
+        };
+
+        canvas.addEventListener('pointerup', stopDrag);
+        canvas.addEventListener('pointercancel', stopDrag);
+      }
+
+      // --- HIGH-DPI CANVAS & RADAR RENDERING ---
+      function fitCanvasToViewport() {
+        if (!canvas || !ctx) return { w: window.innerWidth, h: window.innerHeight };
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.max(1, window.innerWidth);
+        const h = Math.max(1, window.innerHeight);
+        const targetW = Math.floor(w * dpr);
+        const targetH = Math.floor(h * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return { w, h };
+      }
+
+      function getEntityColor(id) {
+        for (let i = 0; i < state.entities.length; i++) {
+          if (state.entities[i].id === id) return state.entities[i].color;
+        }
+        return NEON_THEMES[0];
+      }
+
+      function drawRoundedCell(c, r, colorCfg) {
+        const x = c * CELL_SIZE;
+        const y = r * CELL_SIZE;
+        const pad = 1.5;
+        const rad = 7;
+        const w = CELL_SIZE - pad * 2;
+        const h = CELL_SIZE - pad * 2;
+
+        ctx.fillStyle = colorCfg.fill;
+        ctx.beginPath();
+        ctx.roundRect(x + pad, y + pad, w, h, rad);
+        ctx.fill();
+
+        // Subtle 3D bottom bevel
+        ctx.fillStyle = colorCfg.bevel;
+        ctx.beginPath();
+        ctx.roundRect(x + pad, y + h - 4, w, 5.5, [0, 0, rad, rad]);
+        ctx.fill();
+      }
+
+      function renderArena(w, h) {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, w, h);
+
+        let shakeX = 0;
+        let shakeY = 0;
+        if (state.camera.shake > 0.1) {
+          shakeX = (Math.random() - 0.5) * state.camera.shake;
+          shakeY = (Math.random() - 0.5) * state.camera.shake;
+        }
+
+        ctx.save();
+        ctx.translate(w * 0.5 + shakeX, h * 0.5 + shakeY);
+        ctx.scale(state.camera.zoom, state.camera.zoom);
+        ctx.translate(-state.camera.x, -state.camera.y);
+
+        // Arena floor & subtle neon grid
+        ctx.fillStyle = '#080e20';
+        ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let c = 0; c <= GRID_COLS; c++) {
+          const gx = c * CELL_SIZE;
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx, ARENA_H);
+        }
+        for (let r = 0; r <= GRID_ROWS; r++) {
+          const gy = r * CELL_SIZE;
+          ctx.moveTo(0, gy);
+          ctx.lineTo(ARENA_W, gy);
+        }
+        ctx.stroke();
+
+        // Ambient motes
+        for (let i = 0; i < state.motes.length; i++) {
+          const m = state.motes[i];
+          ctx.fillStyle = `rgba(125, 211, 252, ${m.alpha})`;
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Owned territory cells
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            const ownerId = state.territory[cellIdx(c, r)];
+            if (ownerId !== 0) {
+              drawRoundedCell(c, r, getEntityColor(ownerId));
+            }
+          }
+        }
+
+        // Active trail cells
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            const tId = state.trail[cellIdx(c, r)];
+            if (tId !== 0) {
+              const col = getEntityColor(tId);
+              ctx.fillStyle = col.trail;
+              ctx.beginPath();
+              ctx.roundRect(c * CELL_SIZE + 4, r * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8, 6);
+              ctx.fill();
+            }
+          }
+        }
+
+        // Floating bonus gems
+        for (let i = 0; i < state.gems.length; i++) {
+          const g = state.gems[i];
+          const pulse = 1 + Math.sin(state.time * 4 + g.phase) * 0.16;
+          ctx.save();
+          ctx.translate(g.x, g.y);
+          ctx.scale(pulse, pulse);
+          ctx.fillStyle = '#00f5ff';
+          ctx.shadowColor = '#00f5ff';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.moveTo(0, -g.r);
+          ctx.lineTo(g.r, 0);
+          ctx.lineTo(0, g.r);
+          ctx.lineTo(-g.r, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Smooth curved ribbons for entities outside territory
+        for (let i = 0; i < state.entities.length; i++) {
+          const ent = state.entities[i];
+          if (!ent.alive || !ent.outsideTerritory || ent.ribbonPoints.length < 2) continue;
+
+          ctx.save();
+          ctx.strokeStyle = ent.color.primary;
+          ctx.lineWidth = 10;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.shadowColor = ent.color.primary;
+          ctx.shadowBlur = 12;
+
+          ctx.beginPath();
+          ctx.moveTo(ent.ribbonPoints[0].x, ent.ribbonPoints[0].y);
+          for (let p = 1; p < ent.ribbonPoints.length; p++) {
+            ctx.lineTo(ent.ribbonPoints[p].x, ent.ribbonPoints[p].y);
+          }
+          ctx.lineTo(ent.x, ent.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Capture ripples
+        for (let i = 0; i < state.ripples.length; i++) {
+          const rp = state.ripples[i];
+          ctx.save();
+          ctx.strokeStyle = rp.color;
+          ctx.globalAlpha = Math.max(0, rp.alpha);
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(rp.x, rp.y, rp.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Burst particles
+        for (let i = 0; i < state.particles.length; i++) {
+          const pt = state.particles[i];
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Player & Bot avatars
+        for (let i = 0; i < state.entities.length; i++) {
+          const ent = state.entities[i];
+          if (!ent.alive) continue;
+
+          ctx.save();
+          ctx.translate(ent.x, ent.y);
+
+          if (ent.spawnGrace > 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 4]);
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, state.time * 3, state.time * 3 + Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+
+          ctx.rotate(ent.angle);
+          ctx.fillStyle = ent.color.primary;
+          ctx.shadowColor = ent.color.primary;
+          ctx.shadowBlur = 16;
+          ctx.beginPath();
+          ctx.roundRect(-13, -13, 26, 26, 8);
+          ctx.fill();
+
+          // Direction eye highlight
+          ctx.fillStyle = '#070b17';
+          ctx.beginPath();
+          ctx.arc(6, -4.5, 2.5, 0, Math.PI * 2);
+          ctx.arc(6, 4.5, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+
+          // Nameplate
+          ctx.font = '700 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = ent.isPlayer ? '#ffffff' : 'rgba(226, 232, 240, 0.85)';
+          ctx.fillText(ent.name, ent.x, ent.y - 20);
+        }
+
+        // Floating score texts
+        for (let i = 0; i < state.floatingTexts.length; i++) {
+          const ft = state.floatingTexts[i];
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, ft.life);
+          ctx.font = '800 13px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        }
+
+        // Arena outer neon wall
+        ctx.strokeStyle = 'rgba(0, 245, 255, 0.45)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, ARENA_W, ARENA_H);
+
+        ctx.restore();
+      }
+
+      function renderRadarMinimap() {
+        if (!minimapCanvas || !minimapCtx) return;
+        const rect = minimapCanvas.getBoundingClientRect();
+        const size = Math.max(64, Math.floor(rect.width || 104));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (minimapCanvas.width !== size * dpr || minimapCanvas.height !== size * dpr) {
+          minimapCanvas.width = size * dpr;
+          minimapCanvas.height = size * dpr;
+        }
+        minimapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        minimapCtx.clearRect(0, 0, size, size);
+
+        const pad = 6;
+        const inner = size - pad * 2;
+        const cellW = inner / GRID_COLS;
+        const cellH = inner / GRID_ROWS;
+
+        minimapCtx.save();
+        minimapCtx.beginPath();
+        minimapCtx.arc(size * 0.5, size * 0.5, inner * 0.5, 0, Math.PI * 2);
+        minimapCtx.clip();
+
+        minimapCtx.fillStyle = '#070c1c';
+        minimapCtx.fillRect(pad, pad, inner, inner);
+
+        // Territories on radar
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            const ownerId = state.territory[cellIdx(c, r)];
+            if (ownerId !== 0) {
+              minimapCtx.fillStyle = getEntityColor(ownerId).primary;
+              minimapCtx.fillRect(pad + c * cellW, pad + r * cellH, cellW + 0.5, cellH + 0.5);
+            }
+          }
+        }
+
+        // Active entities on radar
+        for (let i = 0; i < state.entities.length; i++) {
+          const ent = state.entities[i];
+          if (!ent.alive) continue;
+          const mx = pad + (ent.x / ARENA_W) * inner;
+          const my = pad + (ent.y / ARENA_H) * inner;
+
+          if (ent.isPlayer) {
+            minimapCtx.fillStyle = '#ffffff';
+            minimapCtx.beginPath();
+            minimapCtx.arc(mx, my, 3.6, 0, Math.PI * 2);
+            minimapCtx.fill();
+          } else {
+            minimapCtx.fillStyle = ent.color.primary;
+            minimapCtx.beginPath();
+            minimapCtx.arc(mx, my, 2.3, 0, Math.PI * 2);
+            minimapCtx.fill();
+          }
+        }
+
+        minimapCtx.restore();
+      }
+
+      // --- FX UPDATE & 60FPS LOOP ---
+      function updateFx(dt) {
+        for (let i = 0; i < state.motes.length; i++) {
+          const m = state.motes[i];
+          m.x = (m.x + m.vx * dt + ARENA_W) % ARENA_W;
+          m.y = (m.y + m.vy * dt + ARENA_H) % ARENA_H;
+        }
+
+        for (let i = state.ripples.length - 1; i >= 0; i--) {
+          const rp = state.ripples[i];
+          rp.radius += 220 * dt;
+          rp.alpha -= 1.4 * dt;
+          if (rp.alpha <= 0 || rp.radius >= rp.maxRadius) {
+            state.ripples.splice(i, 1);
+          }
+        }
+
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+          const pt = state.particles[i];
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.vx *= 0.94;
+          pt.vy *= 0.94;
+          pt.life -= dt;
+          if (pt.life <= 0) state.particles.splice(i, 1);
+        }
+
+        for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+          const ft = state.floatingTexts[i];
+          ft.y -= 28 * dt;
+          ft.life -= 1.15 * dt;
+          if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+        }
+
+        if (state.camera.shake > 0) {
+          state.camera.shake = Math.max(0, state.camera.shake - 28 * dt);
+        }
+      }
+
+      function tick(nowMs) {
+        const dt = Math.min(0.05, Math.max(0.001, (nowMs - (state.lastFrameMs || nowMs)) / 1000));
+        state.lastFrameMs = nowMs;
+        state.time += dt;
+
+        const { w, h } = fitCanvasToViewport();
+
+        if (state.mode === 'playing') {
+          state.matchElapsed += dt;
+          state.gemTimer += dt;
+          if (state.gemTimer >= 3.2) {
+            state.gemTimer = 0;
+            spawnGem();
+          }
+
+          updateBotRespawns(dt);
+
+          for (let i = 0; i < state.entities.length; i++) {
+            stepEntity(state.entities[i], dt);
+          }
+
+          const player = state.entities.find((e) => e.isPlayer);
+          if (player && player.alive) {
+            const pct = player.territoryCells / TOTAL_CELLS;
+            const targetZoom = Math.max(0.84, Math.min(1.04, 1.02 - pct * 0.4));
+            const zBlend = 1 - Math.exp(-4.5 * dt);
+            state.camera.zoom += (targetZoom - state.camera.zoom) * zBlend;
+
+            const cBlend = 1 - Math.exp(-12 * dt);
+            state.camera.x += (player.x - state.camera.x) * cBlend;
+            state.camera.y += (player.y - state.camera.y) * cBlend;
+          }
+
+          state.hudTick += dt;
+          if (state.hudTick >= 0.12) {
+            state.hudTick = 0;
+            refreshHud();
+            refreshCooldownBadge();
+          }
+
+          updateFx(dt);
+        } else if (state.mode === 'menu') {
+          state.camera.zoom += (1.0 - state.camera.zoom) * (1 - Math.exp(-4 * dt));
+          state.camera.x = ARENA_W * 0.5 + Math.cos(state.time * 0.25) * 200;
+          state.camera.y = ARENA_H * 0.5 + Math.sin(state.time * 0.2) * 160;
+          updateFx(dt);
+        }
+
+        renderArena(w, h);
+        if (state.mode === 'playing' || state.mode === 'paused') {
+          renderRadarMinimap();
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      // --- INITIALIZE ---
+      buildThemeChips();
+      seedAmbientArena();
+      fitCanvasToViewport();
+      state.lastFrameMs = performance.now();
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
+```
